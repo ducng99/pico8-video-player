@@ -22,7 +22,7 @@ var rootCmd = &cobra.Command{
 	Use:     "video2p8 [flags] -i <input_video> -o <out_dir>",
 	Example: "video2p8 -i video.mp4 -o output_dir --contrast 1.5",
 	Short:   "Converts a video into PICO-8 cartridges.",
-	Long:    "A tool to convert a video using ffmpeg into a series of PICO-8 cartridges, represeting each frame of the video. A player cartridge is also created to play the frames in PICO-8.",
+	Long:    "A tool to convert a video using ffmpeg into a series of PICO-8 cartridges, represent each frame of the video. A player cartridge is also created to play the frames in PICO-8.",
 	Run:     execute,
 }
 
@@ -41,7 +41,7 @@ func init() {
 	// FFmpeg configs
 	flags.Float32Var(&ffmpegConfig.Fps, "fps", 19.89, "Frames per second")
 	flags.BoolVar(&ffmpegConfig.UsePalette, "use-palette", false, "Use palette")
-	flags.BoolVar(&ffmpegConfig.UsePalette, "use-palette-dither", false, "Use palette dither")
+	flags.BoolVar(&ffmpegConfig.UsePaletteDither, "use-palette-dither", false, "Use palette dither")
 	flags.IntVar(&ffmpegConfig.CropX, "cx", 0, "Crop X")
 	flags.IntVar(&ffmpegConfig.CropY, "cy", 0, "Crop Y")
 	flags.IntVar(&ffmpegConfig.CropWidth, "cw", 0, "Crop width")
