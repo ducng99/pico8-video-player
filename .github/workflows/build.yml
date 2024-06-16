@@ -1,0 +1,151 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  GO_VERSION: "1.22.x"
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04
+          - ubuntu-22.04
+          - windows-2019
+          - windows-2022
+          - macos-12
+          - macos-13
+          - macos-14
+
+    runs-on: ${{ matrix.os }}
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Install templ
+        run: go install github.com/a-h/templ/cmd/templ@latest
+
+      - name: Run test
+        run: |
+          go generate ./...
+          go test -v ./test/...
+
+  build:
+    strategy:
+      matrix:
+        configs:
+          - goos: "linux"
+            goarch: "amd64"
+          - goos: "linux"
+            goarch: "arm64"
+          - goos: "linux"
+            goarch: "arm"
+          - goos: "windows"
+            goarch: "amd64"
+            ext: ".exe"
+          - goos: "windows"
+            goarch: "arm64"
+            ext: ".exe"
+          - goos: "windows"
+            goarch: "arm"
+            ext: ".exe"
+          - goos: "darwin"
+            goarch: "amd64"
+          - goos: "darwin"
+            goarch: "arm64"
+
+    runs-on: ubuntu-22.04
+
+    permissions:
+      contents: read
+
+    needs:
+      - test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Install templ
+        run: go install github.com/a-h/templ/cmd/templ@latest
+
+      - name: Build
+        run: |
+          go generate ./...
+          GOOS=${{ matrix.configs.goos }} GOARCH=${{ matrix.configs.goarch }} go build -v -o ./dist/goserve_${{ matrix.configs.goos }}_${{ matrix.configs.goarch }}${{ matrix.configs.ext }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: goserve_${{ matrix.configs.goos }}_${{ matrix.configs.goarch }}
+          path: ./dist/goserve_*
+          if-no-files-found: error
+
+  changelog:
+    name: Generate changelog
+    runs-on: ubuntu-22.04
+    outputs:
+      release_body: ${{ steps.git-cliff.outputs.content }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Generate a changelog
+        uses: orhun/git-cliff-action@v2
+        id: git-cliff
+        with:
+          config: cliff.toml
+          args: -v -l -s all
+        env:
+          OUTPUT: CHANGES.md
+
+  release:
+    needs:
+      - build
+      - changelog
+
+    runs-on: ubuntu-22.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./dist/
+          pattern: "goserve_*"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: "${{ needs.changelog.outputs.release_body }}"
+          files: "dist/**/*"
+          fail_on_unmatched_files: true
