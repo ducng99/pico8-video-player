@@ -81,9 +81,15 @@ func execute(cmd *cobra.Command, args []string) {
 		var remove_output rune
 		fmt.Scanf("%c", &remove_output)
 
-		if remove_output == 'Y' || remove_output == 'y' || remove_output == '\n' {
-			os.RemoveAll(jpegFramesOutputDir)
-			os.RemoveAll(framesOutputDir)
+		if remove_output == 'Y' || remove_output == 'y' || remove_output == '\r' {
+			if err := os.RemoveAll(jpegFramesOutputDir); err != nil {
+				fmt.Println("Error removing output directory:", err)
+				return
+			}
+			if err := os.RemoveAll(framesOutputDir); err != nil {
+				fmt.Println("Error removing output directory:", err)
+				return
+			}
 		}
 	}
 
