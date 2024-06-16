@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 
@@ -14,6 +15,7 @@ var (
 	ffmpegConfig = image.FfmpegConfig{}
 	inputVideo   string
 	outputDir    string
+	autorunP8    bool
 )
 
 var rootCmd = &cobra.Command{
@@ -33,6 +35,8 @@ func init() {
 
 	flags.StringVarP(&outputDir, "output", "o", "", "Output directory")
 	rootCmd.MarkFlagRequired("output")
+
+	flags.BoolVar(&autorunP8, "autorun", false, "Autorun the player cartridge after conversion. Only works if `pico8` is in PATH")
 
 	// FFmpeg configs
 	flags.Float32Var(&ffmpegConfig.Fps, "fps", 19.89, "Frames per second")
@@ -59,11 +63,11 @@ func execute(cmd *cobra.Command, args []string) {
 	framesOutputDir, err := filepath.Abs(fmt.Sprintf("%s%cframes", outputDir, os.PathSeparator))
 	jpegFramesOutputDir, err2 := filepath.Abs(fmt.Sprintf("%s%craw", outputDir, os.PathSeparator))
 	if err != nil {
-		fmt.Println("Error getting absolute path: ", err)
+		fmt.Println("Error getting absolute path:", err)
 		return
 	}
 	if err2 != nil {
-		fmt.Println("Error getting absolute path: ", err2)
+		fmt.Println("Error getting absolute path:", err2)
 		return
 	}
 
@@ -132,6 +136,10 @@ func execute(cmd *cobra.Command, args []string) {
 	}
 
 	wg.Wait()
+
+	if autorunP8 {
+		runP8Player(outputDir)
+	}
 }
 
 func getJpgFiles(input_dir string) ([]string, error) {
@@ -229,7 +237,7 @@ func reverse(s string) string {
 func writeP8Player(output_dir string) {
 	f, err := os.Create(fmt.Sprintf("%s%cplayer.p8", output_dir, os.PathSeparator))
 	if err != nil {
-		fmt.Println("Error creating player.p8: ", err)
+		fmt.Println("Error creating player.p8:", err)
 		return
 	}
 	defer f.Close()
@@ -252,4 +260,11 @@ function load_data(i)
     reload(0, 0, 0x2000, "frames/" .. i .. ".p8")
 end
 `)
+}
+
+func runP8Player(output_dir string) {
+	cmd := exec.Command("pico8", "-run", fmt.Sprintf("%s%cplayer.p8", output_dir, os.PathSeparator))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Start()
 }
