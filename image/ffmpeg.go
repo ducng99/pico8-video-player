@@ -18,6 +18,8 @@ type FfmpegConfig struct {
 	CropHeight       int
 	Brightness       float32
 	Contrast         float32
+	CutStart         int64
+	CutEnd           int64
 }
 
 var Palette = [173]uint8{
@@ -51,9 +53,14 @@ func IsFFmpegSupported() bool {
 // which matches PICO-8's 128x128 resolution and black bar padding
 // Returns true if the conversion was successful, false otherwise
 func (ffmpegConfig *FfmpegConfig) ConvertVideoToJpeg(inputPath string, outputDir string) error {
-	configFilter := ""
+	trimFilter := ""
+	if ffmpegConfig.CutStart >= 0 && ffmpegConfig.CutEnd > 0 {
+		trimFilter = fmt.Sprintf("trim=%d:%d,setpts=PTS-STARTPTS,", ffmpegConfig.CutStart, ffmpegConfig.CutEnd)
+	}
+
+	cropFilter := ""
 	if ffmpegConfig.CropX >= 0 && ffmpegConfig.CropY >= 0 && ffmpegConfig.CropWidth > 0 && ffmpegConfig.CropHeight > 0 {
-		configFilter = fmt.Sprintf(",crop=%d:%d:%d:%d", ffmpegConfig.CropWidth, ffmpegConfig.CropHeight, ffmpegConfig.CropX, ffmpegConfig.CropY)
+		cropFilter = fmt.Sprintf(",crop=%d:%d:%d:%d", ffmpegConfig.CropWidth, ffmpegConfig.CropHeight, ffmpegConfig.CropX, ffmpegConfig.CropY)
 	}
 
 	paletteFilter := ""
@@ -65,7 +72,7 @@ func (ffmpegConfig *FfmpegConfig) ConvertVideoToJpeg(inputPath string, outputDir
 		}
 	}
 
-	filters := fmt.Sprintf("[0:v]fps=%f%s,scale=128:128:force_original_aspect_ratio=decrease,eq=brightness=%f:contrast=%f,pad=128:128:-1:-1:color=black%s", ffmpegConfig.Fps, configFilter, ffmpegConfig.Brightness, ffmpegConfig.Contrast, paletteFilter)
+	filters := fmt.Sprintf("[0:v]%sfps=%f%s,scale=128:128:force_original_aspect_ratio=decrease,eq=brightness=%f:contrast=%f,pad=128:128:-1:-1:color=black%s", trimFilter, ffmpegConfig.Fps, cropFilter, ffmpegConfig.Brightness, ffmpegConfig.Contrast, paletteFilter)
 
 	cmd := exec.Command("ffmpeg",
 		"-i", inputPath,

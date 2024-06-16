@@ -54,6 +54,8 @@ func init() {
 	flags.IntVar(&ffmpegConfig.CropHeight, "ch", 0, "Crop height")
 	flags.Float32Var(&ffmpegConfig.Brightness, "brightness", 0, "Brightness")
 	flags.Float32Var(&ffmpegConfig.Contrast, "contrast", 1, "Contrast")
+	flags.Int64Var(&ffmpegConfig.CutStart, "cut-start", 0, "Cut start timestamp in seconds. E.g. 69")
+	flags.Int64Var(&ffmpegConfig.CutEnd, "cut-end", 0, "Cut end timestamp in seconds. E.g. 420")
 }
 
 func main() {
