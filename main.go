@@ -36,7 +36,7 @@ func init() {
 	flags.StringVarP(&outputDir, "output", "o", "", "Output directory")
 	rootCmd.MarkFlagRequired("output")
 
-	flags.BoolVar(&autorunP8, "autorun", false, "Autorun the player cartridge after conversion. Only works if `pico8` is in PATH")
+	flags.BoolVar(&autorunP8, "autorun", false, "Autorun the player cartridge after conversion. Only works if \"pico8\" is in PATH")
 
 	// FFmpeg configs
 	flags.Float32Var(&ffmpegConfig.Fps, "fps", 19.89, "Frames per second")
