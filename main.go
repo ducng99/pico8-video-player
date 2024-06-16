@@ -245,19 +245,11 @@ func writeP8Player(output_dir string) {
 	f.WriteString(`pico-8 cartridge // http://www.pico-8.com
 version 42
 __lua__
-local frame = 0
-
-function _init()
-    poke(0x5f55, 0x00)
-end
+local f = 0
 
 function _update60()
-    frame += 1
-    load_data(frame)
-end
-
-function load_data(i)
-    reload(0, 0, 0x2000, "frames/" .. i .. ".p8")
+ f += 1
+ reload(0x6000, 0, 0x2000, "frames/" .. f .. ".p8")
 end
 `)
 }
