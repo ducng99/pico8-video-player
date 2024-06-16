@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -125,7 +126,7 @@ func execute(cmd *cobra.Command, args []string) {
 	for i, jpg_file := range jpg_files {
 		wg.Add(1)
 
-		go func(jpg_file string) {
+		go func(jpg_file string, framesOutputDir string, i int) {
 			defer wg.Done()
 
 			fmt.Println("Processing", jpg_file)
@@ -135,10 +136,12 @@ func execute(cmd *cobra.Command, args []string) {
 				return
 			}
 
-			if err := writeBytesToP8GFX(colourBytesToP8GfxBytes(colourBytes), fmt.Sprintf("%s%c%d.p8", framesOutputDir, os.PathSeparator, i)); err != nil {
+			cartCount := -32768.0 + float64(i)*0.0001
+
+			if err := writeBytesToP8GFX(colourBytesToP8GfxBytes(colourBytes), fmt.Sprintf("%s%c%s.p8", framesOutputDir, os.PathSeparator, strconv.FormatFloat(cartCount, 'f', -1, 64))); err != nil {
 				panic(err)
 			}
-		}(jpg_file)
+		}(jpg_file, framesOutputDir, i)
 	}
 
 	wg.Wait()
@@ -251,10 +254,10 @@ func writeP8Player(output_dir string) {
 	f.WriteString(`pico-8 cartridge // http://www.pico-8.com
 version 42
 __lua__
-local f = 0
+local f = -32768.0
 
 function _update60()
- f += 1
+ f += 0.0001
  reload(0x6000, 0, 0x2000, "frames/" .. f .. ".p8")
 end
 `)
