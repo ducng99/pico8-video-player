@@ -70,7 +70,7 @@ func (ffmpegConfig *FfmpegConfig) ConvertVideoToJpeg(inputPath string, outputDir
 	cmd := exec.Command("ffmpeg",
 		"-i", inputPath,
 		"-filter_complex", filters,
-		outputDir+string(os.PathSeparator)+"%08d.jpg")
+		outputDir+string(os.PathSeparator)+"%09d.jpg")
 
 	if ffmpegConfig.UsePalette {
 		cmd.Args = slices.Insert(cmd.Args, 3, "-i", "-")

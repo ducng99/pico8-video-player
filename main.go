@@ -12,6 +12,11 @@ import (
 	"r.tomng.dev/video2p8/image"
 )
 
+type WorkerInput struct {
+	JpgFile string
+	Index   int
+}
+
 var (
 	ffmpegConfig = image.FfmpegConfig{}
 	inputVideo   string
@@ -105,6 +110,7 @@ func execute(cmd *cobra.Command, args []string) {
 	}
 
 	// Converts video to JPG frames
+	fmt.Println("Converting video to JPG frames...")
 	if err := ffmpegConfig.ConvertVideoToJpeg(inputVideo, jpegFramesOutputDir); err != nil {
 		fmt.Println("Error converting video to JPG:", err)
 		return
@@ -122,32 +128,42 @@ func execute(cmd *cobra.Command, args []string) {
 
 	// Process all JPG files to frames cartridges
 	var wg sync.WaitGroup
+	jobs := make(chan *WorkerInput, len(jpg_files))
+
+	// Start workers
+	for range 5000 {
+		wg.Add(1)
+		go worker(&wg, jobs, framesOutputDir)
+	}
 
 	for i, jpg_file := range jpg_files {
-		wg.Add(1)
-
-		go func(jpg_file string, framesOutputDir string, i int) {
-			defer wg.Done()
-
-			fmt.Println("Processing", jpg_file)
-			colourBytes, err := image.GetP8Colours(jpg_file)
-			if err != nil {
-				fmt.Println("Error getting pixels:", err)
-				return
-			}
-
-			cartCount := -32768.0 + float64(i)*0.0001
-
-			if err := writeBytesToP8GFX(colourBytesToP8GfxBytes(colourBytes), fmt.Sprintf("%s%c%s.p8", framesOutputDir, os.PathSeparator, strconv.FormatFloat(cartCount, 'f', -1, 64))); err != nil {
-				panic(err)
-			}
-		}(jpg_file, framesOutputDir, i)
+		jobs <- &WorkerInput{JpgFile: jpg_file, Index: i}
 	}
+	close(jobs)
 
 	wg.Wait()
 
 	if autorunP8 {
 		runP8Player(outputDir)
+	}
+}
+
+func worker(wg *sync.WaitGroup, jobs <-chan *WorkerInput, framesOutputDir string) {
+	defer wg.Done()
+	for job := range jobs {
+
+		fmt.Println("Processing", job.JpgFile)
+		colourBytes, err := image.GetP8Colours(job.JpgFile)
+		if err != nil {
+			fmt.Println("Error getting pixels:", err)
+			return
+		}
+
+		cartCount := -32768.0 + float64(job.Index)*0.0001
+
+		if err := writeBytesToP8GFX(colourBytesToP8GfxBytes(colourBytes), fmt.Sprintf("%s%c%s.p8", framesOutputDir, os.PathSeparator, strconv.FormatFloat(cartCount, 'f', -1, 64))); err != nil {
+			panic(err)
+		}
 	}
 }
 
