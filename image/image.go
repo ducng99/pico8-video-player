@@ -7,7 +7,7 @@ import (
 	"r.tomng.dev/video2p8/colour"
 )
 
-func GetPixels(jpg_file string) ([]byte, error) {
+func GetP8Colours(jpg_file string) ([]byte, error) {
 	f, err := os.Open(jpg_file)
 	if err != nil {
 		return nil, err

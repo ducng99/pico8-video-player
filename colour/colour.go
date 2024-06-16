@@ -24,6 +24,8 @@ var (
 	P8_COLOUR_13 = Colour{131, 118, 156, 174, 39, 129}
 	P8_COLOUR_14 = Colour{255, 119, 168, 226, 240, 136}
 	P8_COLOUR_15 = Colour{255, 204, 170, 16, 240, 200}
+
+	P8_COLOURS = []Colour{P8_COLOUR_0, P8_COLOUR_1, P8_COLOUR_2, P8_COLOUR_3, P8_COLOUR_4, P8_COLOUR_5, P8_COLOUR_6, P8_COLOUR_7, P8_COLOUR_8, P8_COLOUR_9, P8_COLOUR_10, P8_COLOUR_11, P8_COLOUR_12, P8_COLOUR_13, P8_COLOUR_14, P8_COLOUR_15}
 )
 
 func NewWithRGB(r, g, b uint32) Colour {
@@ -98,71 +100,21 @@ func (c Colour) HslDistance(target Colour) float64 {
 // This function converts the RGB values to HSL and then compares them to the PICO-8 colours.
 func CompressRGBToP8Colour(r, g, b uint32) byte {
 	// Get the closest colour using delta-e
-	closestColour := P8_COLOUR_0
-	smallestDeltaE := math.MaxFloat64
-	for _, p8Colour := range []Colour{
-		P8_COLOUR_0,
-		P8_COLOUR_1,
-		P8_COLOUR_2,
-		P8_COLOUR_3,
-		P8_COLOUR_4,
-		P8_COLOUR_5,
-		P8_COLOUR_6,
-		P8_COLOUR_7,
-		P8_COLOUR_8,
-		P8_COLOUR_9,
-		P8_COLOUR_10,
-		P8_COLOUR_11,
-		P8_COLOUR_12,
-		P8_COLOUR_13,
-		P8_COLOUR_14,
-		P8_COLOUR_15,
-	} {
+	closestColour := 0
+	smallestDistance := math.MaxFloat64
+
+	for colourCode, p8Colour := range P8_COLOURS {
 		// Convert current RGB to HSL
 		currentColour := NewWithRGB(r, g, b)
+
 		// Compare colours using HSL distance
-		deltaE := p8Colour.HslDistance(currentColour)
-		if deltaE < smallestDeltaE {
-			smallestDeltaE = deltaE
-			closestColour = p8Colour
+		distance := p8Colour.HslDistance(currentColour)
+
+		if distance < smallestDistance {
+			smallestDistance = distance
+			closestColour = colourCode
 		}
 	}
 
-	// Map the closest colour to the PICO-8 colour
-	switch closestColour {
-	case P8_COLOUR_0:
-		return 0
-	case P8_COLOUR_1:
-		return 1
-	case P8_COLOUR_2:
-		return 2
-	case P8_COLOUR_3:
-		return 3
-	case P8_COLOUR_4:
-		return 4
-	case P8_COLOUR_5:
-		return 5
-	case P8_COLOUR_6:
-		return 6
-	case P8_COLOUR_7:
-		return 7
-	case P8_COLOUR_8:
-		return 8
-	case P8_COLOUR_9:
-		return 9
-	case P8_COLOUR_10:
-		return 10
-	case P8_COLOUR_11:
-		return 11
-	case P8_COLOUR_12:
-		return 12
-	case P8_COLOUR_13:
-		return 13
-	case P8_COLOUR_14:
-		return 14
-	case P8_COLOUR_15:
-		return 15
-	default:
-		return 0
-	}
+	return byte(closestColour)
 }
