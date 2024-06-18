@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -22,6 +24,7 @@ var (
 	inputVideo   string
 	outputDir    string
 	autorunP8    bool
+	workers      int
 )
 
 var rootCmd = &cobra.Command{
@@ -43,6 +46,7 @@ func init() {
 	rootCmd.MarkFlagRequired("output")
 
 	flags.BoolVar(&autorunP8, "autorun", false, "Autorun the player cartridge after conversion. Only works if \"pico8\" is in PATH")
+	flags.IntVarP(&workers, "workers", "w", 1000, "Number of workers to process frames.")
 
 	// FFmpeg configs
 	flags.Float32Var(&ffmpegConfig.Fps, "fps", 19.89, "Frames per second")
@@ -133,7 +137,7 @@ func execute(cmd *cobra.Command, args []string) {
 	jobs := make(chan *WorkerInput, len(jpg_files))
 
 	// Start workers
-	for range 5000 {
+	for range workers {
 		wg.Add(1)
 		go worker(&wg, jobs, framesOutputDir)
 	}
@@ -152,8 +156,8 @@ func execute(cmd *cobra.Command, args []string) {
 
 func worker(wg *sync.WaitGroup, jobs <-chan *WorkerInput, framesOutputDir string) {
 	defer wg.Done()
-	for job := range jobs {
 
+	for job := range jobs {
 		fmt.Println("Processing", job.JpgFile)
 		colourBytes, err := image.GetP8Colours(job.JpgFile)
 		if err != nil {
@@ -189,6 +193,23 @@ func getJpgFiles(input_dir string) ([]string, error) {
 	return jpg_files, nil
 }
 
+// For each pair of bytes, combine them into a single byte
+// As each colour byte is 4 bits, we can combine them into a single byte
+// E.g. [0] -> 0x0a, [1] -> 0x0b = 0xba
+func colourBytesToP8GfxBytes(bytes []byte) []byte {
+	output := make([]byte, 0, len(bytes)/2)
+
+	for i := 0; i < len(bytes); i += 2 {
+		color1 := bytes[i]
+		color2 := bytes[i+1]
+		b := color2<<4 | color1
+
+		output = append(output, b)
+	}
+
+	return output
+}
+
 // Creates a new PICO-8 cartridge with the given bytes in the __gfx__ section
 // Bytes are reversed then written from left to right
 // E.g. Screen with colour codes: 12 34
@@ -201,64 +222,30 @@ func writeBytesToP8GFX(bytes []byte, output_file string) error {
 	defer f.Close()
 
 	// Write the PICO-8 code
-	f.WriteString(`pico-8 cartridge // http://www.pico-8.com
+	code := `pico-8 cartridge // http://www.pico-8.com
 version 42
-__gfx__
-`)
+__gfx__`
 
 	lineCount := 0
-	charCount := 0
 
-	for _, b := range bytes {
-		if charCount >= 128 {
-			f.WriteString("\n")
-			lineCount++
-			charCount = 0
-		}
-
-		hex := reverse(fmt.Sprintf("%02x", b))
-		f.WriteString(hex)
-		charCount += len(hex)
+	for i := 0; i < len(bytes); i += 64 {
+		code += "\n" + hex.EncodeToString(bytes[i:i+64])
+		lineCount++
 	}
 
-	for charCount < 128 {
-		f.WriteString("0")
-		charCount++
+	bytesWritten := lineCount * 64
+	bytesLeft := len(bytes) - bytesWritten
+	if bytesLeft != 0 {
+		lineCount++
 	}
 
-	for ; (lineCount+1)%8 != 0; lineCount++ {
-		f.WriteString("\n")
-		for range 128 {
-			f.WriteString("0")
-		}
-	}
+	f.WriteString(code +
+		"\n" + hex.EncodeToString(bytes[bytesWritten:]) +
+		strings.Repeat("00", 64-bytesLeft) +
+		strings.Repeat("\n00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", lineCount%8),
+	)
 
 	return nil
-}
-
-// For each pair of bytes, combine them into a single byte
-// As each colour byte is 4 bits, we can combine them into a single byte
-// E.g. 0x0a, 0x0b -> 0xab
-func colourBytesToP8GfxBytes(bytes []byte) []byte {
-	output := make([]byte, 0, len(bytes)/2)
-
-	for i := 0; i < len(bytes); i += 2 {
-		color1 := bytes[i]
-		color2 := bytes[i+1]
-		b := color1<<4 | color2
-
-		output = append(output, b)
-	}
-
-	return output
-}
-
-func reverse(s string) string {
-	runes := []rune(s)
-	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-		runes[i], runes[j] = runes[j], runes[i]
-	}
-	return string(runes)
 }
 
 func writeP8Player(output_dir string) {
@@ -291,8 +278,10 @@ function _update60()
  elseif btnp(❎) then
   s = (s == 0 and 1 or 0)
  end
- f += 0.0001 * s
- reload(0x6000, 0, 0x2000, "frames/" .. f .. ".p8")
+ if s != 0 then
+  f += 0.0001 * s
+  reload(0x6000, 0, 0x2000, "frames/" .. f .. ".p8")
+ end
 end
 `)
 }
