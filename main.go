@@ -273,9 +273,25 @@ func writeP8Player(output_dir string) {
 version 42
 __lua__
 local f = -32768.0
+local s = 1
+
+function _draw()
+ if s == 0 then
+  print("paused",0,122,7)
+ elseif s != 1 then
+  print("speed: x"..s,0,122,7)
+ end
+end
 
 function _update60()
- f += 0.0001
+ if btnp(⬅️) then
+  s -= (s == 1 and 2 or 1)
+ elseif btnp(➡️) then
+  s += (s == -1 and 2 or 1)
+ elseif btnp(❎) then
+  s = (s == 0 and 1 or 0)
+ end
+ f += 0.0001 * s
  reload(0x6000, 0, 0x2000, "frames/" .. f .. ".p8")
 end
 `)
